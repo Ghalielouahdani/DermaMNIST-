@@ -25,11 +25,8 @@ class MLP(nn.Module):
             n_classes (int): number of classes to predict
         """
         super().__init__()
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        self.fc1 = nn.Linear(input_size, 50)
+        self.fc2 = nn.Linear(50, n_classes)
 
     def forward(self, x):
         """
@@ -41,11 +38,12 @@ class MLP(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        # Flatten input
+        x = x.view(x.size(0), -1)
+        # Hidden layer with ReLU activation
+        x = F.relu(self.fc1(x))
+        # Output logits
+        preds = self.fc2(x)
         return preds
 
 
