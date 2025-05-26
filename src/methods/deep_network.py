@@ -25,8 +25,14 @@ class MLP(nn.Module):
             n_classes (int): number of classes to predict
         """
         super().__init__()
-        self.fc1 = nn.Linear(input_size, 50)
-        self.fc2 = nn.Linear(50, n_classes)
+        self.fc1 = nn.Linear(input_size, 512)
+        self.batchnorm1 = nn.BatchNorm1d(512)
+        self.fc2 = nn.Linear(512, 256)
+        self.batchnorm2 = nn.BatchNorm1d(256)
+        self.fc3 = nn.Linear(256, 128)
+        self.dropout = nn.Dropout(0.5)
+        self.fc4 = nn.Linear(128, n_classes)
+
 
     def forward(self, x):
         """
@@ -66,10 +72,22 @@ class CNN(nn.Module):
             n_classes (int): number of classes to predict
         """
         super().__init__()
-        self.conv1 = nn.Conv2d(input_channels, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.fc1 = nn.Linear(20 * 4 * 4, 50)
-        self.fc2 = nn.Linear(50, n_classes)
+        #self.conv1 = nn.Conv2d(input_channels, 10, kernel_size=5)
+        #self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+        #self.fc1 = nn.Linear(20 * 4 * 4, 50)
+        #self.fc2 = nn.Linear(50, n_classes)
+
+        self.conv1 = nn.Conv2d(input_channels, 32, 3, padding=1)
+        self.bn1   = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.bn2   = nn.BatchNorm2d(64)
+        self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
+        self.bn3   = nn.BatchNorm2d(128)
+        self.pool  = nn.MaxPool2d(2)
+        self.dropout = nn.Dropout(0.5)
+        self.fc1   = nn.Linear(128 * 3 * 3, 256)
+        self.fc2   = nn.Linear(256, n_classes)
+
         
 
     def forward(self, x):
@@ -113,7 +131,7 @@ class Trainer(object):
         self.batch_size = batch_size
 
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum = 0.9, weight_decay=1e-4) # stochastic gradient descent with momentum
         self.device = device
 
     def train_all(self, dataloader):
