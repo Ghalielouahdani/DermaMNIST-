@@ -46,10 +46,13 @@ class MLP(nn.Module):
         """
         # Flatten input
         x = x.view(x.size(0), -1)
-        # Hidden layer with ReLU activation
-        x = F.relu(self.fc1(x))
+        # Hidden layers with ReLU activation and BatchNorm
+        x = F.relu(self.batchnorm1(self.fc1(x)))
+        x = F.relu(self.batchnorm2(self.fc2(x)))
+        x = F.relu(self.fc3(x))
+        x = self.dropout(x)
         # Output logits
-        preds = self.fc2(x)
+        preds = self.fc4(x)
         return preds
 
 
@@ -60,7 +63,7 @@ class CNN(nn.Module):
     It should use at least one convolutional layer.
     """
 
-    def __init__(self, input_channels, n_classes):
+    def __init__(self, input_channels, n_classes, dropout_rate=0.5):
         """
         Initialize the network.
 
@@ -70,6 +73,7 @@ class CNN(nn.Module):
         Arguments:
             input_channels (int): number of channels in the input
             n_classes (int): number of classes to predict
+            dropout_rate (float): dropout probability
         """
         super().__init__()
         #self.conv1 = nn.Conv2d(input_channels, 10, kernel_size=5)
@@ -84,7 +88,7 @@ class CNN(nn.Module):
         self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
         self.bn3   = nn.BatchNorm2d(128)
         self.pool  = nn.MaxPool2d(2)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout_rate)
         self.fc1   = nn.Linear(128 * 3 * 3, 256)
         self.fc2   = nn.Linear(256, n_classes)
 
@@ -100,10 +104,17 @@ class CNN(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2(x), 2))
-        x = x.view(x.size(0), -1)
+        # Conv layers with ReLU, BatchNorm, and MaxPool
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.bn3(self.conv3(x))))
+        
+        # Flatten for fully connected layers
+        x = x.view(x.size(0), -1) 
+        
+        # Fully connected layers with ReLU and Dropout
         x = F.relu(self.fc1(x))
+        x = self.dropout(x)
         preds = self.fc2(x)
         return preds
 
@@ -115,7 +126,7 @@ class Trainer(object):
     It will also serve as an interface between numpy and pytorch.
     """
 
-    def __init__(self, model, lr, epochs, batch_size, device=None):
+    def __init__(self, model, lr, epochs, batch_size, device=None, weight_decay=1e-4):
         """
         Initialize the trainer object for a given model.
 
@@ -124,15 +135,18 @@ class Trainer(object):
             lr (float): learning rate for the optimizer
             epochs (int): number of epochs of training
             batch_size (int): number of data points in each batch
+            device (torch.device): device to use for training
+            weight_decay (float): L2 penalty regularizer
         """
         self.lr = lr
         self.epochs = epochs
         self.model = model
         self.batch_size = batch_size
+        self.device = device # Ensure device is set before optimizer
 
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum = 0.9, weight_decay=1e-4) # stochastic gradient descent with momentum
-        self.device = device
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9, weight_decay=weight_decay) # Use parameter
+        # self.device = device # Original position, moved up
 
     def train_all(self, dataloader):
         """
@@ -159,6 +173,7 @@ class Trainer(object):
         """
         self.model.train()
         for inputs, labels in dataloader:
+            inputs, labels = inputs.to(self.device), labels.to(self.device) # Move data to device
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, labels)
@@ -186,7 +201,7 @@ class Trainer(object):
         all_preds = []
         with torch.no_grad():
             for batch in dataloader:
-                inputs = batch[0]
+                inputs = batch[0].to(self.device) # Move data to device
                 outputs = self.model(inputs)
                 preds = outputs.argmax(dim=1)
                 all_preds.append(preds)

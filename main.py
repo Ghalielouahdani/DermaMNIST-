@@ -2,6 +2,7 @@ import argparse
 import torch
 import numpy as np
 from torchinfo import summary
+from torch.utils.data import TensorDataset, DataLoader
 from src.data import load_data
 from src.methods.deep_network import MLP, CNN, Trainer
 from src.utils import normalize_fn, accuracy_fn, macrof1_fn, get_n_classes
@@ -44,7 +45,7 @@ def main(args):
     if args.nn_type == "mlp":
         model = MLP(x_tr.shape[1], n_classes)
     else:
-        model = CNN(x_tr.shape[1], n_classes)
+        model = CNN(x_tr.shape[1], n_classes, dropout_rate=args.dropout_rate)
     device = torch.device(args.device if (args.device!="cpu" and torch.cuda.is_available()) or args.device=="mps" else "cpu")
     model.to(device)
     summary(model)
@@ -54,7 +55,8 @@ def main(args):
                       lr=args.lr,
                       epochs=args.max_iters,
                       batch_size=args.nn_batch_size,
-                      device=device)
+                      device=device,
+                      weight_decay=args.weight_decay)
 
     # 6. Train & evaluate
     start_train = time.time()
@@ -84,5 +86,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--max_iters', type=int, default=100)
     parser.add_argument('--test', action="store_true")
+    parser.add_argument('--weight_decay', type=float, default=1e-4)
+    parser.add_argument('--dropout_rate', type=float, default=0.5)
     args = parser.parse_args()
     main(args)
